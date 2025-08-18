@@ -1,0 +1,13 @@
+#spring.application.name=PalliativeCare
+
+spring:
+  application:
+    name: PalliativeCare
+  data:
+    mongodb:
+      uri: mongodb+srv://mawklyzuxz:SEflCIsCeDlY7l0e@cluster0.57qg7zh.mongodb.net/palliativeCareDB?retryWrites=true&w=majority&appName=Cluster0
+
+jwt:
+  secret: 113d954e5040013eb4dde00417359bd70aeef72def0e1f8ff1baa6d6e344d7d40bd54f41
+server:
+  port: 8080
