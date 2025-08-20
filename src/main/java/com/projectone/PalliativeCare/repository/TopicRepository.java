@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface TopicRepository extends MongoRepository<Topic, String> {
     Optional<Topic> findByTitle(String title);   // search a topic by its exact name
     List<Topic> findByTitleContainingIgnoreCase(String keyword); // search topics by partial name
+    Optional<Topic> findByTitleIgnoreCase(String title);
 }

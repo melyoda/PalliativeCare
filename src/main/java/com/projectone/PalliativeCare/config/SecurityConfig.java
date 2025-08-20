@@ -9,6 +9,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -23,13 +24,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @RequiredArgsConstructor
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
-    private final AuthenticationConfiguration authConfig;
+//    private final AuthenticationConfiguration authConfig;
 
-//    private final UserRepository userRepository;
-    private MyUserDetailsService myUserDetailsService;
+//    private final UserRepository userRepo;
+//    private MyUserDetailsService myUserDetailsService;
 
 
     @Bean
@@ -71,13 +73,3 @@ public class SecurityConfig {
 
 }
 
-
-/*
-http
-    .authorizeHttpRequests(auth -> auth
-        .requestMatchers("/api/patient/**").hasRole("PATIENT")
-        .requestMatchers("/api/doctor/**").hasRole("DOCTOR")
-        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-        .anyRequest().authenticated()
-    );
- */

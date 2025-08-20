@@ -4,10 +4,12 @@ package com.projectone.PalliativeCare.controller;
 import com.projectone.PalliativeCare.dto.ApiResponse;
 import com.projectone.PalliativeCare.dto.TopicDTO;
 import com.projectone.PalliativeCare.model.Topic;
+import com.projectone.PalliativeCare.service.RegistrationService;
 import com.projectone.PalliativeCare.service.TopicServices;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,7 +21,11 @@ public class TopicController {
 
     private final TopicServices topicServices;
 
+
+    private final RegistrationService registrationService;
+
     @PostMapping("/create")
+    @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<ApiResponse<String>> createTopic(@ModelAttribute TopicDTO topicDTO) {
         try {
             topicServices.createTopic(topicDTO);
@@ -84,4 +90,32 @@ public class TopicController {
             return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @PostMapping("{topicId}/register")
+    public ResponseEntity<ApiResponse<String>> registerTopic(@PathVariable String topicId) {
+//          topicServices.registerUserToTopic(topicId);
+            registrationService.registerUserToTopic(topicId);
+            ApiResponse<String> response = ApiResponse.<String>builder()
+                    .status(HttpStatus.OK)
+                    .message("User registered to topic successfully")
+                    .data(null)
+                    .build();
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{topicId}/unregister")
+    public ResponseEntity<ApiResponse<String>> unregisterUser(@PathVariable String topicId) {
+//      topicServices.unregisterUserFromTopic(topicId);
+        registrationService.unregisterUserFromTopic(topicId);
+
+        ApiResponse<String> response = ApiResponse.<String>builder()
+                .status(HttpStatus.OK)
+                .message("User unregistered to topic successfully")
+                .data(null)
+                .build();
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
 }

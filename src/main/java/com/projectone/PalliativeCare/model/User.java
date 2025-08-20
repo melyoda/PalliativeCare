@@ -44,7 +44,7 @@ public class User {
 
     private Role role;
 
-    private List<String> registeredTopic;
+    private List<String> registeredTopics; //Topics IDs I think
 
     @CreatedDate
     private LocalDateTime createdAt;

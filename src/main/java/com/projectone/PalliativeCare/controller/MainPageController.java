@@ -10,6 +10,6 @@ public class MainPageController {
 
     @GetMapping("posts")
     public String posts() {
-        return "posts";
+        return "Users Main page: wow so empty";
     }
 }
