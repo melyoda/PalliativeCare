@@ -1,10 +1,7 @@
 package com.projectone.PalliativeCare.service;
 
 import com.projectone.PalliativeCare.dto.TopicDTO;
-import com.projectone.PalliativeCare.exception.FileUploadException;
-import com.projectone.PalliativeCare.exception.InvalidRequestException;
-import com.projectone.PalliativeCare.exception.ResourceNotFoundException;
-import com.projectone.PalliativeCare.exception.UserAlreadyExistsException;
+import com.projectone.PalliativeCare.exception.*;
 import com.projectone.PalliativeCare.model.*;
 import com.projectone.PalliativeCare.repository.TopicRepository;
 import com.projectone.PalliativeCare.repository.UserRepository;
@@ -21,12 +18,16 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 public class TopicServices {
 
     private final TopicRepository topicRepo;
     private final UserRepository userRepo;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @Autowired
     private ActivityService activityService;
@@ -41,70 +42,19 @@ public class TopicServices {
     }
 
     public List<Topic> searchTopics(String keyword) {
-        // Case-insensitive search on title
-        return topicRepo.findByTitleContainingIgnoreCase(keyword);
+        List<Topic> results = topicRepo.findByTitleContainingIgnoreCase(keyword);
+        if (results.isEmpty()) {
+            throw new ResourceNotFoundException("No topics found matching: " + keyword);
+        }
+        return results;
     }
-
-//    public void registerUserToTopic(String topicId) {
-//        // Get the current user's ID from the security context
-//        UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext()
-//                .getAuthentication().getPrincipal();
-//        User currentUser = userRepo.findByEmail(userDetails.getUsername())
-//                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-//        String userId = currentUser.getId();
-//
-//        // Find the topic
-//        Topic topic = topicRepo.findById(topicId)
-//                .orElseThrow(() -> new ResourceNotFoundException("Topic not found"));
-//
-//        // Add the user's ID to the list (if not already present)
-//        if (!topic.getRegisteredUsers().contains(userId)) {
-//            topic.getRegisteredUsers().add(userId);
-//            topicRepo.save(topic);
-//            //log
-//            activityService.logActivity(userId, ActivityType.TOPIC_REGISTER, topicId, topic.getTitle());
-//        } else {
-//            // Optional: throw an exception if user is already registered
-//            throw new UserAlreadyExistsException("User is already registered for this topic.");
-//        }
-//    }
-//
-//    public void unregisterUserFromTopic(String topicId) {
-//        // Get the current user's ID from the security context
-//        UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-//        User currentUser = userRepo.findByEmail(userDetails.getUsername())
-//                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-//        String userId = currentUser.getId();
-//
-//        // Find the topic
-//        Topic topic = topicRepo.findById(topicId)
-//                .orElseThrow(() -> new ResourceNotFoundException("Topic not found"));
-//
-//        // Remove the user's ID from the list
-//        boolean removed = topic.getRegisteredUsers().remove(userId);
-//        if (removed) {
-//            topicRepo.save(topic);
-//            //log
-//            activityService.logActivity(userId, ActivityType.TOPIC_UNREGISTER, topicId, topic.getTitle());
-//        } else {
-//            throw new InvalidRequestException("User was not registered for this topic.");
-//        }
-//    }
 
     /**
      * Creates A Topic based on the DTO
      * @param topicDTO, TopicDTO
      */
     public void createTopic(TopicDTO topicDTO) {
-
-        UserDetails userDetails = (UserDetails) SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getPrincipal();
-
-        String userEmail = userDetails.getUsername(); // assuming email is username
-        User creator  = userRepo.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User creator = getCurrentUser();
 
         String logoUrl = null;
         if (topicDTO.getLogo() != null && !topicDTO.getLogo().isEmpty()) {
@@ -127,7 +77,6 @@ public class TopicServices {
                     .toList();
         }
 
-
         Topic topic = Topic.builder()
                 .title(topicDTO.getTitle())
                 .description(topicDTO.getDescription())
@@ -140,8 +89,105 @@ public class TopicServices {
 
         topicRepo.save(topic);
 
-        activityService.logActivity(creator.getId(), ActivityType.TOPIC_CREATE, topic.getId(), topic.getTitle());
+        activityService.logActivity(
+                creator.getId(),
+                ActivityType.TOPIC_CREATE,
+                topic.getId(),
+                "Creation of topic: "+ topic.getTitle()
+        );
     }
+
+    public void deleteTopic(String topicId) {
+        User currentUser = getCurrentUser();
+        Topic topic = getCurrentTopic(topicId);
+
+        if(!Objects.equals(currentUser.getId(), topic.getCreatedBy())) {
+            throw new UnauthorizedActionException("You do not have permission to delete this topic");
+        }
+        activityService.logActivity(
+                currentUser.getId(),
+                ActivityType.TOPIC_DELETE,
+                topic.getId(),
+                "Deletion of topic : "+ topic.getTitle()
+        );
+        topicRepo.deleteById(topicId);
+    }
+
+    public Topic updateTopic(String topicId, TopicDTO topicDTO) {
+        User currentUser = getCurrentUser();
+
+        // Fetch the topic by id
+        Topic existingTopic = getCurrentTopic(topicId);
+
+
+        // Ensure only the creator can update
+        if (!Objects.equals(currentUser.getId(), existingTopic.getCreatedBy())) {
+            throw new UnauthorizedActionException("You do not have permission to update this Topic");
+        }
+
+        // Update title if provided
+        if (topicDTO.getTitle() != null) {
+            existingTopic.setTitle(topicDTO.getTitle());
+        }
+
+        // Update description if provided
+        if (topicDTO.getDescription() != null) {
+            existingTopic.setDescription(topicDTO.getDescription());
+        }
+
+        // Update logo if provided
+        if (topicDTO.getLogo() != null && !topicDTO.getLogo().isEmpty()) {
+            String logoUrl = saveFileLocally(topicDTO.getLogo());
+            existingTopic.setLogoUrl(logoUrl);
+        }
+
+        // Update resources if provided (replace mode)
+        if (topicDTO.getResources() != null && !topicDTO.getResources().isEmpty()) {
+            List<Resource> resources = topicDTO.getResources().stream()
+                    .filter(file -> file != null && !file.isEmpty())
+                    .map(file -> {
+                        String url = saveFileLocally(file);
+                        ResourceType type = determineResourceType(
+                                Objects.requireNonNull(file.getOriginalFilename())
+                        );
+                        return Resource.builder()
+                                .type(type)
+                                .contentUrl(url)
+                                .build();
+                    })
+                    .toList();
+            existingTopic.setResources(resources);
+        }
+
+        // Always update modified date
+        existingTopic.setModifiedDate(LocalDateTime.now());
+
+        // Save changes
+        Topic updatedTopic = topicRepo.save(existingTopic);
+
+        // Log activity
+        activityService.logActivity(
+                currentUser.getId(),
+                ActivityType.TOPIC_EDIT,
+                existingTopic.getId(),
+                "Update of topic: " + existingTopic.getTitle()
+        );
+
+        // ✅ Send notification to all topic subscribers
+        // ✅ Notify all subscribers about the update
+        notificationService.sendToTopicSubscribers(
+                topicId,
+                "Topic Updated: " + updatedTopic.getTitle(),
+                "The topic has been updated with new information",
+                NotificationType.TOPIC_UPDATE,
+                null
+        );
+
+        return updatedTopic;
+    }
+
+
+
 
     private String saveFileLocally(MultipartFile file) {
         // Define the upload directory relative to the project's root
@@ -177,6 +223,23 @@ public class TopicServices {
         return ResourceType.TEXT; // default
     }
 
+    //get current user of the system based on security context
+    private User getCurrentUser() {
+        UserDetails userDetails = (UserDetails) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
+
+        String userEmail = userDetails.getUsername(); // assuming email is username
+        return userRepo.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    //get topic id from the url hopefully
+    private Topic getCurrentTopic(String topicId) {
+        return topicRepo.findById(topicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Topic not found with ID: " + topicId));
+    }
 }
 
 

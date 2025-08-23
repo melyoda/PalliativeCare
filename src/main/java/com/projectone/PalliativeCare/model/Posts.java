@@ -13,6 +13,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -33,6 +34,8 @@ public class Posts {
     @Indexed
     private String topicId;  // Reference to parent topic
 
+    private List<Resource> resources;
+
     private String createdBy; // Doctor who created the post
 
     private String modifiedBy; // Last user who edited
@@ -44,12 +47,16 @@ public class Posts {
     // Using nested objects for comments instead of Map for better querying
     private List<Comment> comments = new ArrayList<>();
 
+//    private List<String> patientsHelpNeededPatientId = new ArrayList<>();
+
     // Nested Comment class
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Comment {
+
+        private String commentId = UUID.randomUUID().toString();
 
         private String userId;
 
@@ -62,14 +69,27 @@ public class Posts {
         private LocalDateTime lastEdited;
     }
 
-    // Helper methods
-    public void addComment(String userId, String userDisplayName, String text) {
-        comments.add(Comment.builder()
+//    // Helper methods
+//    public void addComment(String userId, String userDisplayName, String text) {
+//        comments.add(Comment.builder()
+//                .userId(userId)
+//                .userDisplayName(userDisplayName)
+//                .text(text)
+//                .timestamp(LocalDateTime.now())
+//                .build());
+//    }
+
+    // Helper method
+    public Posts.Comment addComment(String userId, String userDisplayName, String text) {
+        Posts.Comment comment = Posts.Comment.builder()
                 .userId(userId)
                 .userDisplayName(userDisplayName)
                 .text(text)
                 .timestamp(LocalDateTime.now())
-                .build());
+                .build();
+
+        comments.add(comment);
+        return comment;
     }
 
 }

@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -32,7 +33,7 @@ public class Topic {
 
     private List<Resource> resources;
 
-    private List<String> registeredUsers; //userRef
+    private List<String> registeredUsers = new ArrayList<>(); //userRef
 
     private String createdBy; //based on user id / userRef only this user can update the topic
 

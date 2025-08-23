@@ -4,6 +4,8 @@ package com.projectone.PalliativeCare.service;
 import com.mongodb.DuplicateKeyException;
 import com.projectone.PalliativeCare.dto.LoginRequestDTO;
 import com.projectone.PalliativeCare.dto.RegisterRequestDTO;
+import com.projectone.PalliativeCare.exception.UserAlreadyExistsException;
+import com.projectone.PalliativeCare.model.ActivityType;
 import com.projectone.PalliativeCare.model.Role;
 import com.projectone.PalliativeCare.model.User;
 import com.projectone.PalliativeCare.repository.UserRepository;
@@ -27,6 +29,9 @@ public class UserService {
     @Autowired
     private UserRepository userRepo;
 
+    @Autowired
+    private ActivityService activityService;
+
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
     public String register(RegisterRequestDTO registerRequest) {
@@ -48,13 +53,14 @@ public class UserService {
                 .build();
 
         if (userRepo.findByEmail(user.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already exists");
+            throw new UserAlreadyExistsException("User with this email already exists");
         }
 
         try {
             userRepo.save(user);
+            activityService.logActivity(user.getId(), ActivityType.USER_CREATED, "", "Creation of User: "+ user.getFirstName()+" "+ user.getLastName());
         } catch (DuplicateKeyException e) {
-            throw new RuntimeException("Email already exists");
+            throw new UserAlreadyExistsException("User with this email already exists");
         }
         return jwtService.generateToken(user.getEmail());
     }

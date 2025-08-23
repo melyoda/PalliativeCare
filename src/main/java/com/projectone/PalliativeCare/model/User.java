@@ -12,6 +12,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -44,7 +45,7 @@ public class User {
 
     private Role role;
 
-    private List<String> registeredTopics; //Topics IDs I think
+    private List<String> registeredTopics = new ArrayList<>(); //Topics IDs I think
 
     @CreatedDate
     private LocalDateTime createdAt;
@@ -60,7 +61,7 @@ public class User {
         return "User{" +
                 "id='" + id + '\'' +
                 ", username='" + getUsername() + '\'' +
-                ", password='" + password + '\'' +
+//                ", password='" + password + '\'' +
                 ", role=" + role +
                 '}';
     }

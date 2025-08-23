@@ -4,10 +4,12 @@ import com.projectone.PalliativeCare.exception.InvalidRequestException;
 import com.projectone.PalliativeCare.exception.ResourceNotFoundException;
 import com.projectone.PalliativeCare.exception.UserAlreadyExistsException;
 import com.projectone.PalliativeCare.model.ActivityType;
+import com.projectone.PalliativeCare.model.NotificationType;
 import com.projectone.PalliativeCare.model.Topic;
 import com.projectone.PalliativeCare.model.User;
 import com.projectone.PalliativeCare.repository.TopicRepository;
 import com.projectone.PalliativeCare.repository.UserRepository;
+import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,16 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+@AllArgsConstructor
 public class RegistrationService {
 
-    @Autowired
     private TopicRepository topicRepo;
-
-    @Autowired
     private UserRepository userRepo;
-
-    @Autowired
     private ActivityService activityService;
+    private NotificationService notificationService;
 
     public void registerUserToTopic(String topicId) {
         // Get current user
@@ -55,6 +54,15 @@ public class RegistrationService {
 
         // Log activity
         activityService.logActivity(userId, ActivityType.TOPIC_REGISTER, topicId, topic.getTitle());
+        // ✅ ADD NOTIFICATION
+        notificationService.sendToUser(
+                userId,
+                "Topic Registered Successfully",
+                "You are now receiving updates for: " + topic.getTitle(),
+                NotificationType.TOPIC_REGISTRATION,
+                topicId,
+                null
+        );
     }
 
     public void unregisterUserFromTopic(String topicId) {
@@ -83,5 +91,14 @@ public class RegistrationService {
 
         // Log activity
         activityService.logActivity(userId, ActivityType.TOPIC_UNREGISTER, topicId, topic.getTitle());
+        // ✅ ADD NOTIFICATION
+        notificationService.sendToUser(
+                userId,
+                "Topic Unregistered",
+                "You will no longer receive updates for: " + topic.getTitle(),
+                NotificationType.TOPIC_UNREGISTRATION,
+                topicId,
+                null
+        );
     }
 }

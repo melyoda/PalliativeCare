@@ -3,6 +3,8 @@ package com.projectone.PalliativeCare.controller;
 
 import com.projectone.PalliativeCare.dto.ApiResponse;
 import com.projectone.PalliativeCare.dto.TopicDTO;
+import com.projectone.PalliativeCare.exception.ResourceNotFoundException;
+import com.projectone.PalliativeCare.exception.UnauthorizedActionException;
 import com.projectone.PalliativeCare.model.Topic;
 import com.projectone.PalliativeCare.service.RegistrationService;
 import com.projectone.PalliativeCare.service.TopicServices;
@@ -45,6 +47,33 @@ public class TopicController {
                     .build();
             return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<ApiResponse<String>> deleteTopic(@PathVariable String id) {
+        topicServices.deleteTopic(id);
+        ApiResponse<String> response = ApiResponse.<String>builder()
+                .status(HttpStatus.OK)
+                .message("Topic deleted")
+                .data(null)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+
+    @PutMapping("/update/{id}")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<ApiResponse<String>> updateTopic(
+            @PathVariable String id,
+            @ModelAttribute TopicDTO topicDTO) {
+        topicServices.updateTopic(id, topicDTO);
+        ApiResponse<String> response = ApiResponse.<String>builder()
+                .status(HttpStatus.OK)
+                .message("Topic updated")
+                .data(topicDTO.getTitle() != null ? topicDTO.getTitle() : "No title change")
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/all")

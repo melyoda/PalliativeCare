@@ -17,7 +17,7 @@ public class TopicDTO {
     @NotBlank
     private String title;
     @NotBlank
-        private String description;
+    private String description;
 
     private MultipartFile logo; // the logo file
     private List<MultipartFile> resources; // videos, infographics, etc.

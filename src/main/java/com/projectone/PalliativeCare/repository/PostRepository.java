@@ -12,4 +12,7 @@ public interface PostRepository extends MongoRepository<Posts, String> {
     // Find all posts in a topic
     List<Posts> findByTopicId(String topicId);
 
+    List<Posts> findByCreatedBy(String createdBy);
+
+    List<Posts> findByCreatedByAndTopicId(String createdBy, String topicId);
 }
