@@ -7,6 +7,8 @@ import com.projectone.PalliativeCare.repository.TopicRepository;
 import com.projectone.PalliativeCare.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,6 +29,8 @@ public class NotificationService {
     @Autowired
     private UserRepository userRepository;
 
+
+    ///make dtos later for sending users and fix some other shit clean this mess man
     // Send notification to single user
     public Notification sendToUser(String userId, String title, String message,
                                    NotificationType type, String topicId, String postId) {
@@ -86,7 +90,15 @@ public class NotificationService {
     }
 
     // Mark notification as read
-    public Notification markAsRead(String notificationId, String userId) {
+//    public Notification markAsRead(String notificationId, String userId) {
+//        Notification notification = notificationRepo.findByIdAndUserId(notificationId, userId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Notification not found"));
+//
+//        notification.setRead(true);
+//        return notificationRepo.save(notification);
+//    }
+    public Notification markAsRead(String notificationId) {
+        String userId = getCurrentUserId();
         Notification notification = notificationRepo.findByIdAndUserId(notificationId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Notification not found"));
 
@@ -94,13 +106,36 @@ public class NotificationService {
         return notificationRepo.save(notification);
     }
 
-    // Get user notifications
-    public List<Notification> getUserNotifications(String userId) {
+//    // Get user notifications
+//    public List<Notification> getUserNotifications(String userId) {
+//        return notificationRepo.findByUserIdOrderByCreatedAtDesc(userId);
+//    }
+// Updated methods to use current user
+    public List<Notification> getUserNotifications() {
+        String userId = getCurrentUserId();
         return notificationRepo.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
     // Get unread count
-    public long getUnreadCount(String userId) {
+//    public long getUnreadCount(String userId) {
+//        return notificationRepo.countByUserIdAndReadFalse(userId);
+//    }
+    public long getUnreadCount() {
+        String userId = getCurrentUserId();
         return notificationRepo.countByUserIdAndReadFalse(userId);
     }
+
+    // Add these helper methods to get current user
+    private String getCurrentUserId() {
+        UserDetails userDetails = (UserDetails) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
+
+        User currentUser = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return currentUser.getId();
+    }
+
 }
