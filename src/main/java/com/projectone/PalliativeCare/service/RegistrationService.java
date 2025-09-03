@@ -16,6 +16,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 @Transactional
 @AllArgsConstructor
@@ -28,10 +31,7 @@ public class RegistrationService {
 
     public void registerUserToTopic(String topicId) {
         // Get current user
-        UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext()
-                .getAuthentication().getPrincipal();
-        User currentUser = userRepo.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User currentUser = getCurrentUser();
         String userId = currentUser.getId();
 
         // Find topic
@@ -67,10 +67,7 @@ public class RegistrationService {
 
     public void unregisterUserFromTopic(String topicId) {
         // Get current user
-        UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext()
-                .getAuthentication().getPrincipal();
-        User currentUser = userRepo.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User currentUser = getCurrentUser();
         String userId = currentUser.getId();
 
         // Find topic
@@ -100,5 +97,34 @@ public class RegistrationService {
                 topicId,
                 null
         );
+    }
+
+    public List<Topic> getSubscribedTopicsForCurrentUser() {
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            throw new RuntimeException("No authenticated user found in context");
+        }
+
+        List<String> subscribedTopicIds = currentUser.getRegisteredTopics();
+        if (subscribedTopicIds == null) {
+            throw new RuntimeException("Registered topics list is null for user: " + currentUser.getEmail());
+        }
+
+        if (subscribedTopicIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        return topicRepo.findAllById(subscribedTopicIds);
+    }
+
+    private User getCurrentUser() {
+        UserDetails userDetails = (UserDetails) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
+
+        String userEmail = userDetails.getUsername(); // assuming email is username
+        return userRepo.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
     }
 }

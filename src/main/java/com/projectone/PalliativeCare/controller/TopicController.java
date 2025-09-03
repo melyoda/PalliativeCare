@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -67,6 +68,7 @@ public class TopicController {
     public ResponseEntity<ApiResponse<String>> updateTopic(
             @PathVariable String id,
             @ModelAttribute TopicDTO topicDTO) {
+
         topicServices.updateTopic(id, topicDTO);
         ApiResponse<String> response = ApiResponse.<String>builder()
                 .status(HttpStatus.OK)
@@ -145,6 +147,29 @@ public class TopicController {
                 .build();
 
         return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/subscribed")
+    public ResponseEntity<ApiResponse<List<Topic>>> getSubscribedTopicsForCurrentUser() {
+        try {
+            List<Topic> topics = registrationService.getSubscribedTopicsForCurrentUser();
+
+            ApiResponse<List<Topic>> response = ApiResponse.<List<Topic>>builder()
+                    .status(HttpStatus.OK)
+                    .message("Subscribed topics retrieved successfully")
+                    .data(topics)
+                    .build();
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            // Log the error for debugging on the server side
+//            e.printStackTrace();
+            ApiResponse<List<Topic>> errorResponse = ApiResponse.<List<Topic>>builder()
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .message("Error retrieving subscribed topics: " + e.getMessage())
+                    .data(new ArrayList<>()) // Ensure data is an empty list on error for consistent Flutter parsing
+                    .build();
+            return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
 }

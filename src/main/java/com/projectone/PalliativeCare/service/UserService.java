@@ -3,7 +3,9 @@ package com.projectone.PalliativeCare.service;
 
 import com.mongodb.DuplicateKeyException;
 import com.projectone.PalliativeCare.dto.LoginRequestDTO;
+import com.projectone.PalliativeCare.dto.LoginResponseDTO;
 import com.projectone.PalliativeCare.dto.RegisterRequestDTO;
+import com.projectone.PalliativeCare.dto.UserAccountDTO;
 import com.projectone.PalliativeCare.exception.UserAlreadyExistsException;
 import com.projectone.PalliativeCare.model.ActivityType;
 import com.projectone.PalliativeCare.model.Role;
@@ -34,7 +36,7 @@ public class UserService {
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
-    public String register(RegisterRequestDTO registerRequest) {
+    public LoginResponseDTO register(RegisterRequestDTO registerRequest) {
 
         if (!registerRequest.getPassword().equals(registerRequest.getConfirmPassword())) {
             throw new IllegalArgumentException("Passwords do not match");
@@ -58,24 +60,66 @@ public class UserService {
 
         try {
             userRepo.save(user);
-            activityService.logActivity(user.getId(), ActivityType.USER_CREATED, "", "Creation of User: "+ user.getFirstName()+" "+ user.getLastName());
+            activityService.logActivity(
+                    user.getId(),
+                    ActivityType.USER_CREATED,
+                    "",
+                    "Creation of User: "+ user.getFirstName()+" "+ user.getLastName());
         } catch (DuplicateKeyException e) {
             throw new UserAlreadyExistsException("User with this email already exists");
         }
-        return jwtService.generateToken(user.getEmail());
+//        return jwtService.generateToken(user.getEmail());
+
+        // Generate token and convert user to DTO
+        String token = jwtService.generateToken(user.getEmail());
+        UserAccountDTO userAccountDTO = convertToUserAccountDTO(user);
+
+        return new LoginResponseDTO(token, userAccountDTO);
     }
 
 
     // This method returns the token or throws an exception if authentication fails
-    public String login(LoginRequestDTO loginRequest) {
+    public LoginResponseDTO login(LoginRequestDTO loginRequest) {
         // The authenticate method will throw an exception if credentials are bad
         Authentication authentication = authManager
                 .authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
 
         if (authentication.isAuthenticated()) {
-            return jwtService.generateToken(loginRequest.getEmail());
+            // Get user from database
+            User user = userRepo.findByEmail(loginRequest.getEmail())
+                    .orElseThrow(() -> new BadCredentialsException("User not found"));
+
+            // Generate token and convert user to DTO
+            String token = jwtService.generateToken(loginRequest.getEmail());
+            UserAccountDTO userAccountDTO = convertToUserAccountDTO(user);
+
+            return new LoginResponseDTO(token, userAccountDTO);
         }
         // This part is technically unreachable if auth fails, as it throws an exception first
         throw new BadCredentialsException("Invalid username or password");
     }
+
+    // Helper method to convert User to UserAccountDTO
+    private UserAccountDTO convertToUserAccountDTO(User user) {
+        UserAccountDTO dto = new UserAccountDTO();
+        dto.setId(user.getId());
+        dto.setEmail(user.getEmail());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        dto.setRole(user.getRole()); // Convert enum to string
+
+        // Add any additional fields you want to include
+        // Add any additional fields you want to include
+        if (user.getMiddleName() != null) {
+            dto.setMiddleName(user.getMiddleName());
+        }
+        if (user.getMobile() != null) {
+            dto.setMobile(user.getMobile());
+        }
+        if (user.getBirthDate() != null) {
+            dto.setBirthDate(user.getBirthDate());
+        }
+
+        return dto;
+        }
 }

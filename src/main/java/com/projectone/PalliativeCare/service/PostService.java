@@ -1,83 +1,48 @@
 package com.projectone.PalliativeCare.service;
 
-import com.projectone.PalliativeCare.dto.CommentDTO;
+import com.projectone.PalliativeCare.dto.AuthorDTO;
+import com.projectone.PalliativeCare.dto.EnrichedPostDTO;
 import com.projectone.PalliativeCare.dto.PostDTO;
-import com.projectone.PalliativeCare.exception.FileUploadException;
-import com.projectone.PalliativeCare.exception.InvalidRequestException;
+import com.projectone.PalliativeCare.dto.TopicInfoDTO;
 import com.projectone.PalliativeCare.exception.ResourceNotFoundException;
 import com.projectone.PalliativeCare.exception.UnauthorizedActionException;
+import com.projectone.PalliativeCare.mapper.PostMapperService;
 import com.projectone.PalliativeCare.model.*;
 import com.projectone.PalliativeCare.repository.PostRepository;
 import com.projectone.PalliativeCare.repository.TopicRepository;
 import com.projectone.PalliativeCare.repository.UserRepository;
+import com.projectone.PalliativeCare.utils.StoreResources;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class PostService {
+
     private final PostRepository postRepo;
     private final UserRepository userRepo;
     private final TopicRepository topicRepo;
+    private final NotificationService notificationService;
+    private final ActivityService activityService;
+    private final PostMapperService postMapperService;
+    private final StoreResources storeResources;
 
-    @Autowired
-    private NotificationService notificationService;
-
-    @Autowired
-    private ActivityService activityService;
 
     @Value("${app.qa-topic-name:QA}")
     private String qaTopicName;
 
 
     // Create post
-
-    /**
-     * @deprecated
-     * create a post using the DTO
-     * @param dto : PostDTO
-     * @return postRepo
-     *
-     */
-    public Posts createPost(PostDTO dto) {
-        User creator = getCurrentUser();
-
-        // Check if topic exists
-        Topic topic = topicRepo.findById(dto.getTopicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Topic not found with ID: " + dto.getTopicId()));
-
-        Posts post = Posts.builder()
-                .title(dto.getTitle())
-                .content(dto.getContent())
-                .topicId(topic.getId())
-                .resources(getPostResources(dto))
-                .createdBy(creator.getId())
-                .creationDate(LocalDateTime.now())
-                .build();
-
-        Posts saved = postRepo.save(post);
-        activityService.logActivity(
-                creator.getId(),
-                ActivityType.POST_CREATE,
-                post.getId(),
-                "Creation of post : "+ post.getTitle());
-
-        return saved;
-    }
-
     /**
      *
      * @param topicId : topic id gotten from the url
@@ -130,17 +95,19 @@ public class PostService {
         return postRepo.save(patientPost);
     }
 
-    public List<Posts> getPostsByCreator() {
+    public List<EnrichedPostDTO> getPostsByCreator() {
         User creator = getCurrentUser();
-
-        return postRepo.findByCreatedBy(creator.getId());
+        List<Posts> userPosts = postRepo.findByCreatedBy(creator.getId());
+        return postMapperService.toEnrichedPostDTOList(userPosts);
     }
 
     public List<Posts> getQAPostsByCreator() {
         User creator = getCurrentUser();
         Topic qaTopic = getCurrentTopicByTitle("QA");
-
-        return postRepo.findByCreatedByAndTopicId(creator.getId(), qaTopic.getId());
+        return postRepo.findByCreatedByAndTopicId(
+                creator.getId(),
+                qaTopic.getId()
+        );
     }
 //**********************************************************************
 
@@ -170,9 +137,9 @@ public class PostService {
      * @param topicId : gotten from the url
      * @return a list of posts under this topic
      */
-    public List<Posts> getPostsByTopic(String topicId) {
+    public Page<Posts> getPostsByTopic(String topicId, Pageable pageable) {
         Topic topic = getCurrentTopic(topicId);
-        return postRepo.findByTopicId(topicId);
+        return postRepo.findByTopicIdOrderByCreationDateDesc(topic.getId(), pageable);
     }
 
     /**
@@ -182,56 +149,86 @@ public class PostService {
      */
     //check later for improvements
     public List<Posts> getPostsByTopicName(String topicName) {
-//        List<Topic> topics = topicRepo.findByTitleContainingIgnoreCase(topicName);
-//        if (topics.isEmpty()) throw new ResourceNotFoundException("Topic not found with name: " + topicName);
-//        Topic topic = topics.get(0);
-
         Topic topics = getCurrentTopicByTitle(topicName);
         return postRepo.findByTopicId(topics.getId());
     }
 
-    // Add comment
-    public Posts addComment(String postId, CommentDTO commentDTO) {
-        Posts post = getCurrentPost(postId);
-        User creator = getCurrentUser();
+    /**
+     * Get all posts from topics the current user is subscribed to
+     * @return List of posts from subscribed topics
+     */
 
-        if (commentDTO.getText() == null || commentDTO.getText().isEmpty()) {
-            throw new InvalidRequestException("Comment text cannot be empty");
+    public List<Posts> getPostsFromSubscribedTopics() {
+        User currentUser = getCurrentUser();
+
+        // Get all topic IDs the user is subscribed to
+        List<String> subscribedTopicIds = currentUser.getRegisteredTopics();
+
+        if (subscribedTopicIds.isEmpty()) {
+            return Collections.emptyList(); // Return empty list if no subscriptions
         }
 
-       Posts.Comment newComment = post.addComment(
-                creator.getId()
-                ,creator.getFirstName() +" "+ creator.getLastName()
-                ,commentDTO.getText()
-        );
-//        List<Posts.Comment> comments = post.getComments();
-//        Posts.Comment newComment = comments.get(comments.size() - 1); // last added comment
-        Posts updatedPost = postRepo.save(post);
+        // Get all posts from subscribed topics, ordered by creation date (newest first)
+        return postRepo.findTop20ByTopicIdInOrderByCreationDateDesc(subscribedTopicIds);
 
-        activityService.logActivity(
-                creator.getId(),
-                ActivityType.COMMENT_CREATE,
-                post.getId(),
-                "Creation of comment: " + newComment.getText()
-        );
-
-        // ✅ Notify the post author about the new comment
-        // (unless the commenter is the post author themselves)
-        if (!creator.getId().equals(post.getCreatedBy())) {
-            notificationService.sendToUser(
-                    post.getCreatedBy(),
-                    "New Response to Your Post",
-                    newComment.getUserDisplayName()
-                            + " commented on your post: " + post.getTitle(),
-                    NotificationType.HELP_RESPONSE,
-                    post.getTopicId(),
-                    postId
-            );
-        }
-
-        return updatedPost;
     }
-    //later make delete comment also might migrate comments to its own entity with db palce maybe
+
+    /**
+     * Get enriched posts from subscribed topics
+     */
+    public List<EnrichedPostDTO> getEnrichedPostsFromSubscribedTopics() {
+        List<Posts> posts = getPostsFromSubscribedTopics();
+        return postMapperService.toEnrichedPostDTOList(posts);
+    }
+
+    /**
+     * Get paginated posts from subscribed topics
+     */
+    public Page<Posts> getPostsFromSubscribedTopics(Pageable pageable) {
+        User currentUser = getCurrentUser();
+        List<String> subscribedTopicIds = currentUser.getRegisteredTopics();
+
+        if (subscribedTopicIds.isEmpty()) {
+            return Page.empty(); // Return empty page if no subscriptions
+        }
+
+        return postRepo.findByTopicIdInOrderByCreationDateDesc(subscribedTopicIds, pageable);
+    }
+
+    // OLD:
+// public Page<Posts> getPostsFromSubscribedTopics(Pageable pageable)
+    public Page<EnrichedPostDTO> getPostsFromSubscribedTopicsEnriched(Pageable pageable) {
+        User currentUser = getCurrentUser();
+        List<String> subscribedTopicIds = currentUser.getRegisteredTopics();
+
+        if (subscribedTopicIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Page<Posts> postsPage =
+                postRepo.findByTopicIdInOrderByCreationDateDesc(subscribedTopicIds, pageable);
+
+        // Map each Posts -> EnrichedPostDTO using your private mapper
+        return postsPage.map(this::mapToEnrichedPostDTO);
+    }
+
+    // OLD:
+// public Page<Posts> getPostsByTopic(String topicId, Pageable pageable)
+    public Page<EnrichedPostDTO> getPostsByTopicEnriched(String topicId, Pageable pageable) {
+        Topic topic = getCurrentTopic(topicId);
+        Page<Posts> postsPage =
+                postRepo.findByTopicIdOrderByCreationDateDesc(topic.getId(), pageable);
+
+        return postsPage.map(this::mapToEnrichedPostDTO);
+    }
+
+    /**
+     * Get single enriched post
+     */
+    public EnrichedPostDTO getEnrichedPost(String postId) {
+        Posts post = getCurrentPost(postId);
+        return postMapperService.toEnrichedPostDTO(post);
+    }
 
     /*
      * Some helper methods
@@ -264,13 +261,13 @@ public class PostService {
     }
 
     private List<Resource> getPostResources(PostDTO postDTO) {
-        List<Resource> resources = List.of(); // empty list if none
+        List<Resource> resources = List.of();
         if (postDTO.getResources() != null) {
             resources = postDTO.getResources().stream()
                     .filter(file -> file != null && !file.isEmpty())
                     .map(file -> {
-                        String url = saveFileLocally(file);
-                        ResourceType type = determineResourceType(Objects.requireNonNull(file.getOriginalFilename()));
+                        String url = storeResources.saveFiles(file);
+                        ResourceType type = storeResources.determineResourceType(Objects.requireNonNull(file.getOriginalFilename()));
                         return Resource.builder()
                                 .type(type)
                                 .contentUrl(url)
@@ -281,38 +278,43 @@ public class PostService {
         return resources;
     }
 
-    private String saveFileLocally(MultipartFile file) {
-        // Define the upload directory relative to the project's root
-        String uploadDir = "Resources/";
+    private EnrichedPostDTO mapToEnrichedPostDTO(Posts p) {
+        // Look up author
+        User author = userRepo.findById(p.getCreatedBy())
+                .orElseThrow(() -> new RuntimeException("Author not found: " + p.getCreatedBy()));
+        Topic topic = topicRepo.findById(p.getTopicId())
+                .orElseThrow(() -> new RuntimeException("Topic not found: " + p.getTopicId()));
 
-        try {
-            // Create a Path object for the directory
-            Path uploadPath = Paths.get(uploadDir);
-
-            // Create the directory if it doesn't exist
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath); // This creates parent directories as well
-            }
-
-            // Resolve the final file path
-            Path filePath = uploadPath.resolve(Objects.requireNonNull(file.getOriginalFilename()));
-
-            // Save the file
-            file.transferTo(filePath);
-
-            // Return the path as a string
-            return filePath.toString();
-
-        } catch (IOException e) {
-//            e.printStackTrace();
-            throw new FileUploadException("File upload failed for " + file.getOriginalFilename() +" "+e.getMessage());
+        AuthorDTO authorDTO = null;
+        if (author != null) {
+            authorDTO = AuthorDTO.builder()
+                    .authorId(author.getId())
+                    .authorFirstName(author.getFirstName())
+                    .authorLastName(author.getLastName())
+                    .authorRole(author.getRole())
+                    .build();
         }
+
+        TopicInfoDTO topicDTO = null;
+        if (topic != null) {
+            topicDTO = TopicInfoDTO.builder()
+                    .topicId(topic.getId())
+                    .topicName(topic.getTitle())
+                    .build();
+        }
+
+        return EnrichedPostDTO.builder()
+                .postId(p.getId())
+                .title(p.getTitle())
+                .content(p.getContent())
+                .creationDate(p.getCreationDate())
+                .modificationDate(p.getModificationDate())
+                .author(authorDTO)
+                .topic(topicDTO)
+                .resources(p.getResources())
+                .commentCount(p.getComments() != null ? p.getComments().size() : 0)
+                .build();
     }
 
-    private ResourceType determineResourceType(String filename) {
-        if (filename.endsWith(".mp4") || filename.endsWith(".mov")) return ResourceType.VIDEO;
-        if (filename.endsWith(".jpg") || filename.endsWith(".png")) return ResourceType.INFOGRAPHIC;
-        return ResourceType.TEXT; // default
-    }
 
 }

@@ -2,10 +2,16 @@ package com.projectone.PalliativeCare.controller;
 
 import com.projectone.PalliativeCare.dto.ApiResponse;
 import com.projectone.PalliativeCare.dto.CommentDTO;
+import com.projectone.PalliativeCare.dto.EnrichedPostDTO;
 import com.projectone.PalliativeCare.dto.PostDTO;
 import com.projectone.PalliativeCare.model.Posts;
+import com.projectone.PalliativeCare.service.CommentService;
 import com.projectone.PalliativeCare.service.PostService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,32 +25,14 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
+    private final CommentService commentService;
 
-    /**
-     * @deprecated
-     * @param postDTO
-     * @return
-     */
-    @PostMapping("/create")
-    @PreAuthorize("hasRole('DOCTOR')") // Only doctors can create posts
-    public ResponseEntity<ApiResponse<Posts>> createPost(@RequestBody PostDTO postDTO) {
-
-        Posts post = postService.createPost(postDTO);
-
-        ApiResponse<Posts> response = ApiResponse.<Posts>builder()
-                .status(HttpStatus.CREATED)
-                .message("Post created successfully")
-                .data(post)
-                .build();
-
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
-    }
 
     @PostMapping("/{topicId}/create")
     @PreAuthorize("hasRole('DOCTOR')") // Only doctors can create posts
     public ResponseEntity<ApiResponse<Posts>> createPost(
             @PathVariable String topicId,
-            @RequestBody PostDTO postDTO) {
+            @ModelAttribute PostDTO postDTO) {
 
         Posts post = postService.createPost(topicId, postDTO);
 
@@ -94,10 +82,16 @@ public class PostController {
     }
 
     @GetMapping("/by-topic/{topicId}")
-    public ResponseEntity<ApiResponse<List<Posts>>> getPostsByTopic(@PathVariable String topicId) {
-        List<Posts> posts = postService.getPostsByTopic(topicId);
+    public ResponseEntity<ApiResponse<Page<EnrichedPostDTO>>> getPostsByTopic(
+            @PathVariable String topicId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
 
-        ApiResponse<List<Posts>> response = ApiResponse.<List<Posts>>builder()
+        Pageable pageable = PageRequest.of(page, size, Sort.by("creationDate").descending());
+//        Page<Posts> posts = postService.getPostsByTopic(topicId, pageable);
+        Page<EnrichedPostDTO> posts = postService.getPostsByTopicEnriched(topicId, pageable);
+
+        ApiResponse<Page<EnrichedPostDTO>> response = ApiResponse.<Page<EnrichedPostDTO>>builder()
                 .status(HttpStatus.OK)
                 .message("Posts for topic ID: " + topicId)
                 .data(posts)
@@ -130,6 +124,43 @@ public class PostController {
 
     }
 
+    /**
+     * Get single enriched post
+     */
+    @GetMapping("/{postId}/enriched")
+    public ResponseEntity<ApiResponse<EnrichedPostDTO>> getEnrichedPost(@PathVariable String postId) {
+        EnrichedPostDTO post = postService.getEnrichedPost(postId);
+
+        ApiResponse<EnrichedPostDTO> response = ApiResponse.<EnrichedPostDTO>builder()
+                .status(HttpStatus.OK)
+                .message("Enriched post details")
+                .data(post)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get paginated posts from subscribed topics
+     */
+    @GetMapping("/subscribed/paged")
+    public ResponseEntity<ApiResponse<Page<EnrichedPostDTO>>> getPostsFromSubscribedTopicsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("creationDate").descending());
+//        Page<Posts> posts = postService.getPostsFromSubscribedTopics(pageable);
+        Page<EnrichedPostDTO> posts = postService.getPostsFromSubscribedTopicsEnriched(pageable);
+
+        ApiResponse<Page<EnrichedPostDTO>> response = ApiResponse.<Page<EnrichedPostDTO>>builder()
+                .status(HttpStatus.OK)
+                .message("Posts from subscribed topics")
+                .data(posts)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
     // Add a comment to a post
     @PostMapping("/{postId}/comment")
     @PreAuthorize("hasRole('PATIENT') or hasRole('DOCTOR')") // Adjust roles as needed
@@ -137,7 +168,7 @@ public class PostController {
             @PathVariable String postId,
             @RequestBody CommentDTO commentDTO) {
 
-        Posts updatedPost = postService.addComment(postId, commentDTO);
+        Posts updatedPost = commentService.addComment(postId, commentDTO);
 
         ApiResponse<Posts> response = ApiResponse.<Posts>builder()
                 .status(HttpStatus.CREATED)

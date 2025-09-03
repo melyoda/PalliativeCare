@@ -60,7 +60,7 @@ public class Posts {
 
         private String userId;
 
-        private String userDisplayName; // Optional: for showing names without extra queries
+        private String userDisplayName;
 
         private String text;
 
@@ -68,16 +68,6 @@ public class Posts {
 
         private LocalDateTime lastEdited;
     }
-
-//    // Helper methods
-//    public void addComment(String userId, String userDisplayName, String text) {
-//        comments.add(Comment.builder()
-//                .userId(userId)
-//                .userDisplayName(userDisplayName)
-//                .text(text)
-//                .timestamp(LocalDateTime.now())
-//                .build());
-//    }
 
     // Helper method
     public Posts.Comment addComment(String userId, String userDisplayName, String text) {

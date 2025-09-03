@@ -12,6 +12,6 @@ public class PostDTO {
     private String title;
     @NotBlank
     private String content;
-    private String topicId;
+//    private String topicId;
     private List<MultipartFile> resources; // videos, infographics, etc.
 }
