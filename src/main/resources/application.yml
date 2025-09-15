@@ -5,10 +5,15 @@ spring:
     name: PalliativeCare
   data:
     mongodb:
-      uri: mongodb+srv://mawklyzuxz:SEflCIsCeDlY7l0e@cluster0.57qg7zh.mongodb.net/palliativeCareDB?retryWrites=true&w=majority&appName=Cluster0
+      uri: ${MONGO_URI}
 
 jwt:
-  secret: "ET2VTlBAAT603eAEFzWb1wru9y3vDh+P8bqm1uNE19QL1U9B"
+  secret: ${JWT_SECRET_KEY}
   expiration: 7d
 server:
-  port: 8080
+  port: ${PORT:8080}
+
+cloudinary:
+  url: ${CLOUDINARY_CLOUD_URL}
+
+
