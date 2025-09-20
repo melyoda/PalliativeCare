@@ -22,6 +22,10 @@ public class ChatService {
         return messageRepository.save(chatMessage);
     }
 
+    public List<ChatMessage> getChatMessagesByRoomId(String roomId) {
+        return messageRepository.findByRoomIdOrderByTimestampAsc(roomId);
+    }
+
     public List<ChatConversationDTO> getConversationsForUser(String username) {
         // THIS IS A SIMPLIFIED LOGIC. For production, you should have a separate
         // 'ChatRoom' entity that explicitly lists participants for efficiency.
@@ -33,7 +37,7 @@ public class ChatService {
         List<String> roomIds = sentMessages.stream()
                 .map(ChatMessage::getRoomId)
                 .distinct()
-                .collect(Collectors.toList());
+                .toList();
 
         // 3. For each room, create a DTO with the last message and other participant's info
         return roomIds.stream().map(roomId -> {

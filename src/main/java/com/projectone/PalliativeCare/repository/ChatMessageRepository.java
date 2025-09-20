@@ -13,4 +13,5 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
     // A better approach is to have a separate 'ChatRoom' collection that lists participants.
     // For now, we'll derive it, but this is not efficient for large datasets.
     List<ChatMessage> findBySender(String sender);
+    List<ChatMessage> findByRoomIdOrderByTimestampAsc(String roomId);
 }
