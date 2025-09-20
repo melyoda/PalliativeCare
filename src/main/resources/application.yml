@@ -6,6 +6,8 @@ spring:
   data:
     mongodb:
       uri: ${MONGO_URI}
+  main:
+    lazy-initialization: true
 
 jwt:
   secret: ${JWT_SECRET_KEY}
