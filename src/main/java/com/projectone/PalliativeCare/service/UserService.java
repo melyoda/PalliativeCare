@@ -19,6 +19,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 public class UserService {
 
@@ -97,6 +100,21 @@ public class UserService {
         }
         // This part is technically unreachable if auth fails, as it throws an exception first
         throw new BadCredentialsException("Invalid username or password");
+    }
+
+    /**
+     * Finds all users except the one with the specified email and converts them to DTOs.
+     * @param email The email of the user to exclude from the list.
+     * @return A list of UserAccountDTOs.
+     */
+    public List<UserAccountDTO> getAllUserAccountsExcept(String email) {
+        // 1. Fetch the user entities from the repository
+        List<User> users = userRepo.findAllByEmailNot(email);
+
+        // 2. Convert the list of User entities to a list of UserAccountDTOs
+        return users.stream()
+                .map(this::convertToUserAccountDTO) // Re-uses your existing private helper method
+                .collect(Collectors.toList());
     }
 
     // Helper method to convert User to UserAccountDTO

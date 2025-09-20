@@ -13,9 +13,11 @@ import java.util.Optional;
 // @Repository marks this interface as a Spring Data repository.
 @Repository
 public interface UserRepository extends MongoRepository<User, String> {
-    boolean existsByEmail(String email);
+//    boolean existsByEmail(String email);
     Optional<User> findByEmail(String email);
 
-    List<User> findByRegisteredTopicsContaining(String topicId);
+//    List<User> findByRegisteredTopicsContaining(String topicId);
     List<User> findByRole(Role role);
+
+    List<User> findAllByEmailNot(String email);
 }
