@@ -2,18 +2,14 @@ package com.projectone.PalliativeCare.controller;
 
 import com.projectone.PalliativeCare.dto.ChatConversationDTO;
 import com.projectone.PalliativeCare.model.ChatMessage;
-import com.projectone.PalliativeCare.model.User;
 import com.projectone.PalliativeCare.service.ChatService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
-// Import your Spring Security principal object if you use it
-// import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
 
@@ -25,11 +21,10 @@ public class ChatRestController {
     private final ChatService chatService;
 
     @GetMapping
-    public ResponseEntity<List<ChatConversationDTO>> getChatConversations() {
-        String currentUsername = ((UserDetails) SecurityContextHolder
-                .getContext().getAuthentication().getPrincipal()).getUsername();
-
-        List<ChatConversationDTO> conversations = chatService.getConversationsForUser(currentUsername);
+    public ResponseEntity<List<ChatConversationDTO>> getChatConversations(Authentication authentication) {
+        // Use authentication.getName() which safely gets the username (email)
+        String currentUserEmail = authentication.getName();
+        List<ChatConversationDTO> conversations = chatService.getConversationsForUser(currentUserEmail);
         return ResponseEntity.ok(conversations);
     }
 
