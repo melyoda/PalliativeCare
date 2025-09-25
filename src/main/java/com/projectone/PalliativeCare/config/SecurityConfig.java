@@ -49,6 +49,7 @@ public class SecurityConfig {
                                         "/swagger-ui.html",
                                         "/swagger-ui/**"
                                 ).permitAll()
+                        .requestMatchers("/api/posts/my-posts").authenticated()
                         .anyRequest().authenticated() // protect other endpoints
                 )
                 .sessionManagement(session -> session

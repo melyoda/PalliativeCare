@@ -124,6 +124,8 @@ public class PostController {
 
     }
 
+
+
     /**
      * Get single enriched post
      */
@@ -139,6 +141,38 @@ public class PostController {
 
         return ResponseEntity.ok(response);
     }
+    // NEW ENDPOINT 1: Get all posts by the currently logged-in user (for the "My Posts" page)
+    @GetMapping("/my-posts")
+    @PreAuthorize("hasRole('PATIENT') or hasRole('DOCTOR')") // Any authenticated user can see their own posts
+    public ResponseEntity<ApiResponse<List<EnrichedPostDTO>>> getMyPosts() {
+
+        List<EnrichedPostDTO> userPosts = postService.getPostsByCreator();
+
+        ApiResponse<List<EnrichedPostDTO>> response = ApiResponse.<List<EnrichedPostDTO>>builder()
+                .status(HttpStatus.OK)
+                .message("Successfully fetched user's posts")
+                .data(userPosts)
+                .build();
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    // NEW ENDPOINT 2: Get only Q&A posts by the currently logged-in patient
+    @GetMapping("/my-posts/qa")
+    @PreAuthorize("hasRole('PATIENT')") // Specific to patients' questions
+    public ResponseEntity<ApiResponse<List<Posts>>> getMyQAPosts() {
+
+        List<Posts> qaPosts = postService.getQAPostsByCreator();
+
+        ApiResponse<List<Posts>> response = ApiResponse.<List<Posts>>builder()
+                .status(HttpStatus.OK)
+                .message("Successfully fetched user's Q&A posts")
+                .data(qaPosts)
+                .build();
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
 
     /**
      * Get paginated posts from subscribed topics
