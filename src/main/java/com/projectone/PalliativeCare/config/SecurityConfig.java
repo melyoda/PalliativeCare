@@ -53,7 +53,8 @@ public class SecurityConfig {
                                 "/api/posts/**",
                                 "/api/topics/**",
                                 "/api/chats/**",
-                                "/api/users/**"
+                                "/api/users/**",
+                                "/api/notifications/**"
                         ).authenticated()
                         .anyRequest().authenticated() // protect other endpoints
                 )

@@ -130,6 +130,17 @@ public class NotificationController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/read-all") // Using POST as this changes the state of data
+    public ResponseEntity<ApiResponse<String>> markAllAsRead() {
+        notificationService.markAllAsRead();
+        ApiResponse<String> response = ApiResponse.<String>builder()
+                .status(HttpStatus.OK)
+                .message("All notifications marked as read")
+                .data(null)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     // DTOs for request bodies
     @Data
     public static class BroadcastRequest {

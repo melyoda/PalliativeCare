@@ -106,6 +106,17 @@ public class NotificationService {
         return notificationRepo.save(notification);
     }
 
+    public void markAllAsRead() {
+        String userId = getCurrentUserId();
+        List<Notification> unreadNotifications = notificationRepo.findByUserIdAndReadFalse(userId);
+
+        if (!unreadNotifications.isEmpty()) {
+            unreadNotifications.forEach(notification -> notification.setRead(true));
+            notificationRepo.saveAll(unreadNotifications);
+        }
+    }
+
+
 //    // Get user notifications
 //    public List<Notification> getUserNotifications(String userId) {
 //        return notificationRepo.findByUserIdOrderByCreatedAtDesc(userId);
