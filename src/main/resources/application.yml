@@ -6,6 +6,10 @@ spring:
   data:
     mongodb:
       uri: ${MONGO_URI}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
   main:
     lazy-initialization: true
 
